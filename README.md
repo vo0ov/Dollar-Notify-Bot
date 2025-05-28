@@ -1,5 +1,3 @@
-[![wakatime](https://wakatime.com/badge/github/vo0ov/dollar-notify-bot.svg)](https://wakatime.com/badge/github/vo0ov/dollar-notify-bot)
-
 # Dollar Notify Bot
 
 Telegram-бот для мониторинга курса доллара (USD) к рублю с уведомлениями о каждом изменении.

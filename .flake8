@@ -1,0 +1,10 @@
+[flake8]
+; * Основные настройки * ;
+max-line-length = 127
+exclude = .git,__pycache__,build,dist,.venv
+extend-ignore = Q003
+
+; * Кавычки * ;
+inline-quotes = single
+docstring-quotes = double
+multiline-quotes = single

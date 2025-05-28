@@ -1,0 +1,10 @@
+services:
+    bot:
+        build:
+            context: ./src
+
+        container_name: dollar-notify-bot
+        restart: unless-stopped
+
+        env_file:
+            - .env

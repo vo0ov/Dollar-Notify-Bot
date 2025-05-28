@@ -1,0 +1,4 @@
+aiogram
+aiohttp
+defusedxml
+pydantic-settings

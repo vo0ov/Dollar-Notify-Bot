@@ -1,0 +1,91 @@
+name: Lint and deploy to server
+
+on:
+    push:
+        branches:
+            - main
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.x"
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install flake8 flake8-quotes bandit
+
+            - name: Run flake8
+              run: |
+                  flake8 .
+
+            - name: Run bandit
+              run: |
+                  bandit -r .
+
+    deploy:
+        needs: lint
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Add SSH key
+              uses: webfactory/ssh-agent@v0.5.3
+              with:
+                  ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+            - name: Run SSH commands
+              run: |
+                  ssh -o StrictHostKeyChecking=no -p 2222 ${{ secrets.SSH_USER }}@${{ secrets.SSH_IP }} << 'EOF'
+                      set -e
+
+                      # Получаем название репозитория
+                      REPO_NAME="${{ github.event.repository.name }}"  # Используем встроенную переменную
+                      REPO_URL="https://github.com/${{ github.repository }}"
+                      REPO_DIR="/home/$REPO_NAME"
+
+                      echo "=== Начало деплоя для репозитория $REPO_NAME ==="
+
+                      # Проверяем наличие репозитория
+                      if [ ! -d "$REPO_DIR" ]; then
+                          echo "Репозиторий не найден. Клонируем..."
+                          cd /home
+                          gh repo clone $REPO_URL || { echo 'Ошибка: Клонирование репозитория не удалось' >&2; exit 1; }
+                          cd $REPO_NAME
+                      else
+                          echo "Репозиторий найден. Синхронизируем..."
+                          cd $REPO_DIR
+                          gh repo sync --force || { echo 'Ошибка: Синхронизация репозитория не удалась' >&2; exit 1; }
+                      fi
+
+                      # Проверяем наличие Docker
+                      if ! command -v docker &> /dev/null; then
+                          echo "Ошибка: Docker не установлен" >&2
+                          exit 1
+                      fi
+
+                      if ! command -v docker compose &> /dev/null; then
+                          echo "Ошибка: Docker Compose не установлен" >&2
+                          exit 1
+                      fi
+
+                      # Проверяем, запущены ли контейнеры
+                      if docker compose ps &> /dev/null; then
+                          echo "Останавливаем старые контейнеры..."
+                          docker compose down || { echo 'Ошибка: Не удалось остановить старые контейнеры' >&2; exit 1; }
+                      else
+                          echo "Контейнеры не запущены. Пропускаем остановку."
+                      fi
+
+                      # Запускаем новые контейнеры
+                      echo "Запуск Docker Compose..."
+                      docker compose up --build -d || { echo 'Ошибка: Не удалось запустить контейнеры' >&2; exit 1; }
+                      echo "Запуск Docker Compose завершен"
+
+                      echo "=== Деплой завершен ==="
+                  EOF
